@@ -9,9 +9,9 @@ from nengo.utils.progress import (
 
 
 class ProgressBarMock(ProgressBar):
-    def __init__(self, task="Testing"):
+    def __init__(self):
+        super(ProgressBarMock, self).__init__()
         self.n_update_calls = 0
-        super(ProgressBarMock, self).__init__(task)
 
     def update(self, progress):
         self.n_update_calls += 1

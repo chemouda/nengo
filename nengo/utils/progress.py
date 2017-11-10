@@ -51,6 +51,8 @@ class Progress(object):
     ----------
     max_steps : int
         The total number of calculation steps of the process.
+    task : str
+        Short description of the task the progress is for.
 
     Attributes
     ----------
@@ -77,13 +79,13 @@ class Progress(object):
 
     """
 
-    def __init__(self, max_steps=None):
+    def __init__(self, max_steps=None, task=''):
         if max_steps is not None and max_steps <= 0:
             raise ValidationError("must be at least 1 (got %d)"
                                   % (max_steps,), attr="max_steps")
-
         self.n_steps = 0
         self.max_steps = max_steps
+        self.task = task
         self.start_time = self.end_time = time.time()
         self.finished = False
         self.success = None
@@ -162,9 +164,6 @@ class ProgressBar(object):
 
     supports_fast_ipynb_updates = False
 
-    def __init__(self, task):
-        self.task = task
-
     def update(self, progress):
         """Updates the displayed progress.
 
@@ -181,9 +180,6 @@ class NoProgressBar(ProgressBar):
 
     Helpful in headless situations or when using Nengo as a library.
     """
-
-    def __init__(self, task=None):
-        super(NoProgressBar, self).__init__(task=task)
 
     def update(self, progress):
         pass
@@ -204,7 +200,7 @@ class TerminalProgressBar(ProgressBar):
         line = "[{{}}] ETA: {eta}".format(
             eta=timestamp2timedelta(progress.eta()))
         percent_str = " {}... {}% ".format(
-            self.task, int(100 * progress.progress))
+            progress.task, int(100 * progress.progress))
         width, _ = get_terminal_size()
         progress_width = max(0, width - len(line))
         progress_str = (
@@ -222,7 +218,7 @@ class TerminalProgressBar(ProgressBar):
     def _get_finished_line(self, progress):
         width, _ = get_terminal_size()
         line = "{} finished in {}.".format(
-            self.task,
+            progress.task,
             timestamp2timedelta(progress.elapsed_seconds())).ljust(width)
         return '\r' + line + os.linesep
 
@@ -239,9 +235,8 @@ class HtmlProgressBar(ProgressBar):
     """
     supports_fast_ipynb_updates = True
 
-    def __init__(self, task):
-        super(HtmlProgressBar, self).__init__(task)
-        self._escaped_task = escape(task)
+    def __init__(self):
+        super(HtmlProgressBar, self).__init__()
         self._handle = None
         self._progress = None
         self._prev_progress = .0
@@ -262,10 +257,10 @@ class HtmlProgressBar(ProgressBar):
 
     def _repr_html_(self):
         if self._progress is None:
-            text = self._escaped_task
+            text = ''
         elif self._progress.finished:
             text = "{} finished in {}.".format(
-                self._escaped_task,
+                escape(self._progress.task),
                 timestamp2timedelta(self._progress.elapsed_seconds()))
         else:
             text = (
@@ -316,8 +311,8 @@ class IPython5ProgressBar(ProgressBar):
     """
     supports_fast_ipynb_updates = True
 
-    def __init__(self, task):
-        super(IPython5ProgressBar, self).__init__(task)
+    def __init__(self):
+        super(IPython5ProgressBar, self).__init__()
 
         class Displayable(object):
             def __init__(self):
@@ -329,9 +324,9 @@ class IPython5ProgressBar(ProgressBar):
         display(d, exclude=['text/plain'])
 
         if d.display_requested:
-            self._progress_bar = HtmlProgressBar(task)
+            self._progress_bar = HtmlProgressBar()
         else:
-            self._progress_bar = TerminalProgressBar(task)
+            self._progress_bar = TerminalProgressBar()
 
     def update(self, progress):
         self._progress_bar.update(progress)
@@ -349,14 +344,14 @@ class WriteProgressToFile(ProgressBar):
         Path to the file to write the progress to.
     """
 
-    def __init__(self, filename, task):
+    def __init__(self, filename):
         self.filename = filename
-        super(WriteProgressToFile, self).__init__(task)
+        super(WriteProgressToFile, self).__init__()
 
     def update(self, progress):
         if progress.finished:
             text = "{} finished in {}.".format(
-                self.task,
+                self.progress.task,
                 timestamp2timedelta(progress.elapsed_seconds()))
         else:
             text = "{progress:.0f}%, ETA: {eta}".format(
@@ -381,7 +376,7 @@ class AutoProgressBar(ProgressBar):
     def __init__(self, delegate, min_eta=1.):
         self.delegate = delegate
 
-        super(AutoProgressBar, self).__init__(delegate.task)
+        super(AutoProgressBar, self).__init__()
 
         self.min_eta = min_eta
         self._visible = False
@@ -395,14 +390,6 @@ class AutoProgressBar(ProgressBar):
         elif long_eta or progress.finished:
             self._visible = True
             self.delegate.update(progress)
-
-    @property
-    def task(self):
-        return self.delegate.task
-
-    @task.setter
-    def task(self, value):
-        self.delegate.task = value
 
 
 class ProgressUpdater(object):
@@ -517,9 +504,9 @@ class ProgressTracker(object):
         The progress bar to display the progress.
     """
     def __init__(self, max_steps, progress_bar, task):
-        self.progress = Progress(max_steps)
+        self.progress = Progress(max_steps, task=task)
         self.progress_bar = wrap_with_progressupdater(
-            task=task, progress_bar=progress_bar)
+            progress_bar=progress_bar)
 
     def __enter__(self):
         self.progress.__enter__()
@@ -542,7 +529,7 @@ class ProgressTracker(object):
         self.progress_bar.update(self.progress)
 
 
-def get_default_progressbar(task):
+def get_default_progressbar():
     """The default progress bar to use depending on the execution environment.
 
     Returns
@@ -560,14 +547,14 @@ def get_default_progressbar(task):
 
     if pbar.lower() == 'auto':
         if get_ipython() is not None and check_ipy_version((5, 0)):
-            return AutoProgressBar(IPython5ProgressBar(task=task))
+            return AutoProgressBar(IPython5ProgressBar())
         else:
-            return AutoProgressBar(TerminalProgressBar(task=task))
+            return AutoProgressBar(TerminalProgressBar())
     if pbar.lower() == 'none':
         return NoProgressBar()
 
     try:
-        return _load_class(pbar)(task)
+        return _load_class(pbar)()
     except Exception as e:
         warnings.warn(str(e))
         return NoProgressBar()
@@ -601,7 +588,7 @@ def get_default_progressupdater(progress_bar):
             warnings.warn(str(e))
 
 
-def wrap_with_progressupdater(task, progress_bar=True):
+def wrap_with_progressupdater(progress_bar=True):
     """Wraps a progress bar with the default progress updater.
 
     If it is already wrapped by an progress updater, then this does nothing.
@@ -620,9 +607,7 @@ def wrap_with_progressupdater(task, progress_bar=True):
         return NoProgressBar()
 
     if progress_bar is True:
-        progress_bar = get_default_progressbar(task)
-
-    progress_bar.task = task
+        progress_bar = get_default_progressbar()
 
     if isinstance(progress_bar, ProgressUpdater):
         return progress_bar
