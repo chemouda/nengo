@@ -56,8 +56,8 @@ class Progress(object):
     ----------
     steps : int
         Number of completed steps.
-    max_steps : int
-        The total number of calculation steps of the process.
+    max_steps : int, optional
+        The total number of calculation steps of the process, if known.
     start_time : float
         Time stamp of the time the process was started.
     end_time : float
@@ -77,8 +77,8 @@ class Progress(object):
 
     """
 
-    def __init__(self, max_steps):
-        if max_steps <= 0:
+    def __init__(self, max_steps=None):
+        if max_steps is not None and max_steps <= 0:
             raise ValidationError("must be at least 1 (got %d)"
                                   % (max_steps,), attr="max_steps")
 
@@ -96,6 +96,8 @@ class Progress(object):
         -------
         float
         """
+        if self.max_steps is None:
+            return 0.
         return min(1.0, self.n_steps / self.max_steps)
 
     def elapsed_seconds(self):
@@ -135,7 +137,7 @@ class Progress(object):
 
     def __exit__(self, exc_type, dummy_exc_value, dummy_traceback):
         self.success = exc_type is None
-        if self.success:
+        if self.success and self.max_steps is not None:
             self.n_steps = self.max_steps
         self.end_time = time.time()
         self.finished = True
@@ -509,8 +511,8 @@ class ProgressTracker(object):
 
     Parameters
     ----------
-    max_steps : int
-        Maximum number of steps of the process.
+    max_steps : int, optional
+        Maximum number of steps of the process (if known).
     progress_bar : :class:`ProgressBar` or :class:`ProgressUpdater`
         The progress bar to display the progress.
     """
