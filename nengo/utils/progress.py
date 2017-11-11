@@ -191,6 +191,8 @@ class TerminalProgressBar(ProgressBar):
     def update(self, progress):
         if progress.finished:
             line = self._get_finished_line(progress)
+        elif progress.max_steps is None:
+            line = self._get_unknown_progress_line(progress)
         else:
             line = self._get_in_progress_line(progress)
         sys.stdout.write(line)
@@ -213,6 +215,29 @@ class TerminalProgressBar(ProgressBar):
                 progress_str[:percent_pos] + percent_str +
                 progress_str[percent_pos + len(percent_str):])
 
+        return '\r' + line.format(progress_str)
+
+    def _get_unknown_progress_line(self, progress):
+        """Generates a progress line with continuously moving marker.
+
+        This is to indicate processing while not knowing how far along we
+        progressed with the processing.
+        """
+        duration = progress.elapsed_seconds()
+        line = "[{{}}] duration: {duration}".format(
+            duration=timestamp2timedelta(duration))
+        text = " {}... ".format(progress.task)
+        width, _ = get_terminal_size()
+        marker = '>>>>'
+        progress_width = max(0, width - len(line) + 2)
+        index_width = progress_width + len(marker)
+        i = int(4. * duration) % (index_width + 1)
+        progress_str = (' ' * i) + marker + (' ' * (progress_width - i))
+        progress_str = progress_str[len(marker):-len(marker)]
+        text_pos = (len(progress_str) - len(text)) // 2
+        progress_str = (
+            progress_str[:text_pos] + text +
+            progress_str[text_pos + len(text):])
         return '\r' + line.format(progress_str)
 
     def _get_finished_line(self, progress):
