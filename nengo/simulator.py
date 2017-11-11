@@ -160,7 +160,10 @@ class Simulator(object):
         self.dg = operator_dependency_graph(self.model.operators)
 
         if optimize:
-            opmerge_optimize(self.model, self.dg)
+            with ProgressTracker(
+                    None, progress_bar, task="Optimizing") as progress:
+                opmerge_optimize(
+                    self.model, self.dg, progress_tracker=progress)
 
         self._step_order = [op for op in toposort(self.dg)
                             if hasattr(op, 'make_step')]
