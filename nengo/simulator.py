@@ -14,7 +14,7 @@ from nengo.cache import get_default_decoder_cache
 from nengo.exceptions import ReadonlyError, SimulatorClosed, ValidationError
 from nengo.utils.compat import range, ResourceWarning
 from nengo.utils.graphs import toposort
-from nengo.utils.progress import ProgressTracker
+from nengo.utils.progress import MultiProgressTracker, ProgressTracker
 from nengo.utils.simulator import operator_dependency_graph
 
 logger = logging.getLogger(__name__)
@@ -152,18 +152,23 @@ class Simulator(object):
         else:
             self.model = model
 
-        if network is not None:
-            # Build the network into the model
-            self.model.build(network, progress_bar=self.progress_bar)
+        progress_tracker = MultiProgressTracker(progress_bar, 'Build')
 
-        # Order the steps (they are made in `Simulator.reset`)
-        self.dg = operator_dependency_graph(self.model.operators)
+        with progress_tracker:
+            if network is not None:
+                progress_tracker.activate_subtask('Building')
+                # Build the network into the model
+                self.model.build(network, progress_tracker=progress_tracker)
 
-        if optimize:
-            with ProgressTracker(
-                    None, progress_bar, task="Optimizing") as progress:
-                opmerge_optimize(
-                    self.model, self.dg, progress_tracker=progress)
+            # Order the steps (they are made in `Simulator.reset`)
+            self.dg = operator_dependency_graph(self.model.operators)
+
+            if optimize:
+                progress_tracker.activate_subtask(
+                    'Building (running optimizer)')
+                with progress_tracker.subprogress(None) as sub_pt:
+                    opmerge_optimize(
+                        self.model, self.dg, progress_tracker=sub_pt)
 
         self._step_order = [op for op in toposort(self.dg)
                             if hasattr(op, 'make_step')]
