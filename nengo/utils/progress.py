@@ -174,6 +174,13 @@ class ProgressBar(object):
         """
         raise NotImplementedError()
 
+    def close(self):
+        """Closes the progress bar.
+
+        Indicates that not further updates will be made.
+        """
+        pass
+
 
 class NoProgressBar(ProgressBar):
     """A progress bar that does not display anything.
@@ -245,7 +252,11 @@ class TerminalProgressBar(ProgressBar):
         line = "{} finished in {}.".format(
             progress.task,
             timestamp2timedelta(progress.elapsed_seconds())).ljust(width)
-        return '\r' + line + os.linesep
+        return '\r' + line
+
+    def close(self):
+        sys.stdout.write(os.linesep)
+        sys.stdout.flush()
 
 
 class HtmlProgressBar(ProgressBar):
@@ -416,6 +427,9 @@ class AutoProgressBar(ProgressBar):
             self._visible = True
             self.delegate.update(progress)
 
+    def close(self):
+        self.delegate.close()
+
 
 class ProgressUpdater(object):
     """Controls how often a progress bar is updated.
@@ -441,6 +455,10 @@ class ProgressUpdater(object):
             Changed progress information.
         """
         raise NotImplementedError()
+
+    def close(self):
+        """Close the progress bar."""
+        self.progress_bar.close()
 
 
 class UpdateN(ProgressUpdater):
@@ -541,6 +559,7 @@ class ProgressTracker(object):
     def __exit__(self, exc_type, exc_value, traceback):
         self.progress.__exit__(exc_type, exc_value, traceback)
         self.progress_bar.update(self.progress)
+        self.progress_bar.close()
 
     def step(self, n=1):
         """Advance the progress and update the progress bar.
