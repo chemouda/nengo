@@ -488,11 +488,15 @@ class UpdateN(ProgressUpdater):
         self.last_update_step = 0
 
     def update(self, progress):
-        next_update_step = (self.last_update_step +
-                            progress.max_steps / self.max_updates)
-        if next_update_step < progress.n_steps or progress.finished:
-            self.progress_bar.update(progress)
-            self.last_update_step = progress.n_steps
+        if progress.max_steps is None:
+            if progress.n_steps == 0 or progress.finished:
+                self.progress_bar.update(progress)
+        else:
+            next_update_step = (self.last_update_step +
+                                progress.max_steps / self.max_updates)
+            if next_update_step < progress.n_steps or progress.finished:
+                self.progress_bar.update(progress)
+                self.last_update_step = progress.n_steps
 
 
 class UpdateEveryN(ProgressUpdater):
