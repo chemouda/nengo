@@ -430,6 +430,10 @@ class AutoProgressBar(ProgressBar):
     def close(self):
         self.delegate.close()
 
+    @property
+    def supports_fast_ipynb_updates(self):
+        return self.delegate.supports_fast_ipynb_updates
+
 
 class ProgressUpdater(object):
     """Controls how often a progress bar is updated.
