@@ -7,6 +7,7 @@ import importlib
 import os
 import sys
 import time
+import uuid
 import warnings
 
 import numpy as np
@@ -19,7 +20,7 @@ from ..rc import rc
 
 
 if get_ipython() is not None:
-    from IPython.display import display
+    from IPython.display import display, Javascript
 
 
 class MemoryLeakWarning(UserWarning):
@@ -273,65 +274,118 @@ class HtmlProgressBar(ProgressBar):
 
     def __init__(self):
         super(HtmlProgressBar, self).__init__()
+        self._uuid = uuid.uuid4()
         self._handle = None
-        self._progress = None
-        self._prev_progress = .0
 
     def update(self, progress):
-        self._progress = progress
         if self._handle is None:
-            self._handle = display(self, display_id=True)
+            display(self._HtmlBase(self._uuid))
+            self._handle = display(self._js_update(progress), display_id=True)
         else:
-            self._handle.update(self)
+            self._handle.update(self._js_update(progress))
 
-    def __repr__(self):
-        return (
-            "HtmlProgressBar cannot be displayed. Please use the "
-            "TerminalProgressBar. It can be enabled with "
-            "`nengo.rc.set('progress', 'progress_bar', "
-            "'nengo.utils.progress.TerminalProgressBar')`.")
+    class _HtmlBase(object):
+        def __init__(self, uuid):
+            self.uuid = uuid
 
-    def _repr_html_(self):
-        if self._progress is None:
+        def __repr__(self):
+            return (
+                "HtmlProgressBar cannot be displayed. Please use the "
+                "TerminalProgressBar. It can be enabled with "
+                "`nengo.rc.set('progress', 'progress_bar', "
+                "'nengo.utils.progress.TerminalProgressBar')`.")
+
+        def _repr_html_(self):
+            return '''
+                <div id="{uuid}" style="
+                    width: 100%;
+                    border: 1px solid #cfcfcf;
+                    border-radius: 4px;
+                    text-align: center;
+                    position: relative;">
+                  <div class="pb-text" style="
+                      position: absolute;
+                      width: 100%;">
+                    0%
+                  </div>
+                  <div class="pb-fill" style="
+                      background-color: #bdd2e6;
+                      width: 0%;">
+                    <style type="text/css" scoped="scoped">
+                        @keyframes pb-fill-anim {{
+                            0% {{ background-position: 0 0; }}
+                            100% {{ background-position: 100px 0; }}
+                        }}
+                    </style>
+                    &nbsp;
+                  </div>
+                </div>'''.format(uuid=self.uuid)
+
+    def _js_update(self, progress):
+        if progress is None:
             text = ''
-        elif self._progress.finished:
+        elif progress.finished:
             text = "{} finished in {}.".format(
-                escape(self._progress.task),
-                timestamp2timedelta(self._progress.elapsed_seconds()))
+                escape(progress.task),
+                timestamp2timedelta(progress.elapsed_seconds()))
+        elif progress.max_steps is None:
+            text = (
+                "{task}&hellip; duration: {duration}".format(
+                    task=escape(progress.task),
+                    duration=timestamp2timedelta(progress.elapsed_seconds())))
         else:
             text = (
                 "{task}&hellip; {progress:.0f}%, ETA: {eta}".format(
-                    task=self._escaped_task,
-                    progress=100. * self._progress.progress,
-                    eta=timestamp2timedelta(self._progress.eta())))
-        html = '''
-            <div style="
-                width: 100%;
-                border: 1px solid #cfcfcf;
-                border-radius: 4px;
-                text-align: center;
-                position: relative;">
-              <div class="pb-text" style="
-                  position: absolute;
-                  width: 100%;">
-                {text}
-              </div>
-              <div style="
-                  background-color: #bdd2e6;
-                  animation: progress 0.1s 1;
-                  width: {progress}%;">
-                <style type="text/css" scoped="scoped">
-                    @keyframes progress {{
-                        0% {{ width: {prev_progress}%; }}
-                        100% {{ width: {progress}%; }}
-                </style>
-                &nbsp;
-              </div>
-            </div>'''.format(
-            text=text, prev_progress=self._prev_progress * 100.,
-            progress=self._progress.progress * 100.)
-        self._prev_progress = self._progress.progress
-        return html
+                    task=escape(progress.task),
+                    progress=100. * progress.progress,
+                    eta=timestamp2timedelta(progress.eta())))
+
+        if progress.max_steps is None:
+            update = self._update_unknown_steps(progress)
+        else:
+            update = self._update_known_steps(progress)
+
+        if progress.finished:
+            finish = '''
+                fill.style.animation = 'none';
+                fill.style.backgroundImage = 'none';
+            '''
+        else:
+            finish = ''
+
+        return Javascript('''
+              (function () {{
+                  var root = document.getElementById('{uuid}');
+                  var text = root.getElementsByClassName('pb-text')[0];
+                  var fill = root.getElementsByClassName('pb-fill')[0];
+
+                  text.innerHTML = '{text}';
+                  {update}
+                  {finish}
+              }})();
+        '''.format(uuid=self._uuid, text=text, update=update, finish=finish))
+
+    def _update_known_steps(self, progress):
+        return '''
+            if ({progress} > 0.) {{
+                fill.style.transition = 'width 0.1s linear';
+            }} else {{
+                fill.style.transition = 'none';
+            }}
+
+            fill.style.width = '{progress}%';
+            fill.style.animation = 'none';
+            fill.style.backgroundImage = 'none'
+        '''.format(progress=100. * progress.progress)
+
+    def _update_unknown_steps(self, progress):
+        return '''
+            fill.style.width = '100%';
+            fill.style.animation = 'pb-fill-anim 2s linear infinite';
+            fill.style.backgroundSize = '100px 100%';
+            fill.style.backgroundImage = 'repeating-linear-gradient(' +
+                '90deg, #bdd2e6, #edf2f8 40%, #bdd2e6 80%, #bdd2e6)';
+        '''
 
 
 class IPython5ProgressBar(ProgressBar):
