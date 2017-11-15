@@ -239,7 +239,7 @@ class TerminalProgressBar(ProgressBar):
         progress_width = max(0, width - len(line) + 2)
         index_width = progress_width + len(marker)
         i = int(4. * duration) % (index_width + 1)
-        progress_str = (' ' * i) + marker + (' ' * (progress_width - i))
+        progress_str = (' ' * i) + marker + (' ' * (index_width - i))
         progress_str = progress_str[len(marker):-len(marker)]
         text_pos = (len(progress_str) - len(text)) // 2
         progress_str = (
