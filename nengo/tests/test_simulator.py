@@ -323,7 +323,7 @@ def test_simulator_progress_bars(RefSimulator):
                 self.n_steps <= progress.n_steps <= self.n_steps + 1)
             self.n_steps = progress.n_steps
 
-        def close(self):
+        def close(self, progress):
             self.closed = True
 
     with nengo.Network() as model:

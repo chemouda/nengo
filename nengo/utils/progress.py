@@ -176,7 +176,7 @@ class ProgressBar(object):
         """
         raise NotImplementedError()
 
-    def close(self):
+    def close(self, progress):
         """Closes the progress bar.
 
         Indicates that not further updates will be made.
@@ -198,9 +198,7 @@ class TerminalProgressBar(ProgressBar):
     """A progress bar that is displayed as ASCII output on `stdout`."""
 
     def update(self, progress):
-        if progress.finished:
-            line = self._get_finished_line(progress)
-        elif progress.max_steps is None:
+        if progress.max_steps is None:
             line = self._get_unknown_progress_line(progress)
         else:
             line = self._get_in_progress_line(progress)
@@ -256,8 +254,9 @@ class TerminalProgressBar(ProgressBar):
             timestamp2timedelta(progress.elapsed_seconds())).ljust(width)
         return '\r' + line
 
-    def close(self):
-        sys.stdout.write(os.linesep)
+    def close(self, progress):
+        line = self._get_finished_line(progress)
+        sys.stdout.write(line + "\n")
         sys.stdout.flush()
 
 
@@ -482,8 +481,8 @@ class AutoProgressBar(ProgressBar):
             self._visible = True
             self.delegate.update(progress)
 
-    def close(self):
-        self.delegate.close()
+    def close(self, progress):
+        self.delegate.close(progress)
 
     @property
     def supports_fast_ipynb_updates(self):
@@ -515,9 +514,15 @@ class ProgressUpdater(object):
         """
         raise NotImplementedError()
 
-    def close(self):
-        """Close the progress bar."""
-        self.progress_bar.close()
+    def close(self, progress):
+        """Close the progress bar.
+
+        Parameters
+        ----------
+        progress : :class:`Progress`
+            Changed progress information.
+        """
+        self.progress_bar.close(progress)
 
 
 class UpdateN(ProgressUpdater):
@@ -644,7 +649,7 @@ class ProgressTracker(object):
 
         self.progress_bar.update(self.progress)
         if self.close:
-            self.progress_bar.close()
+            self.progress_bar.close(self.progress)
 
     def step(self, n=1):
         """Advance the progress and update the progress bar.
