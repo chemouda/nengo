@@ -6,6 +6,7 @@ from datetime import timedelta
 import importlib
 import os
 import sys
+import threading
 import time
 import uuid
 import warnings
@@ -619,13 +620,28 @@ class ProgressTracker(object):
             progress_bar=progress_bar)
         self.close = close
 
+        if max_steps is None:
+            self.thread = threading.Thread(
+                target=ThreadedProgressStepper(self))
+            self.thread.daemon = True
+        else:
+            self.thread = None
+
     def __enter__(self):
         self.progress.__enter__()
         self.progress_bar.update(self.progress)
+
+        if self.thread is not None:
+            self.thread.start()
+
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.progress.__exit__(exc_type, exc_value, traceback)
+
+        if self.thread is not None:
+            self.thread.join()
+
         self.progress_bar.update(self.progress)
         if self.close:
             self.progress_bar.close()
@@ -677,6 +693,16 @@ class NoopProgressTracker(ProgressTracker):
 
     def subprogress(self, *_):
         return NoopProgressTracker()
+
+
+class ThreadedProgressStepper(object):
+    def __init__(self, progress_tracker):
+        self.progress_tracker = progress_tracker
+
+    def __call__(self):
+        while not self.progress_tracker.progress.finished:
+            self.progress_tracker.step()
+            time.sleep(0.01)
 
 
 def get_default_progressbar():
