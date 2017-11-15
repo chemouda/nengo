@@ -10,6 +10,7 @@ from nengo.ensemble import Ensemble
 from nengo.network import Network
 from nengo.node import Node
 from nengo.probe import Probe
+from nengo.utils.progress import NoopProgressTracker
 
 logger = logging.getLogger(__name__)
 nullcontext = contextlib.contextmanager(lambda: (yield))
@@ -65,7 +66,7 @@ def build_network(model, network, progress_tracker=None):
         max_steps = len(network.all_objects) + 1  # +1 for top level network
 
         if progress_tracker is not None:
-            progress = progress_tracker.subprogress(max_steps)
+            progress = progress_tracker.subprogress(max_steps, "Building")
 
             def build_callback(obj):
                 if isinstance(obj, tuple(network.objects)):
@@ -125,14 +126,3 @@ def build_network(model, network, progress_tracker=None):
     # Unset config
     model.config = old_config
     model.params[network] = None
-
-
-class NoopProgressTracker(object):
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        pass
-
-    def step(self):
-        pass

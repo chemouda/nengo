@@ -156,7 +156,6 @@ class Simulator(object):
 
         with progress_tracker:
             if network is not None:
-                progress_tracker.activate_subtask('Building')
                 # Build the network into the model
                 self.model.build(network, progress_tracker=progress_tracker)
 
@@ -164,9 +163,8 @@ class Simulator(object):
             self.dg = operator_dependency_graph(self.model.operators)
 
             if optimize:
-                progress_tracker.activate_subtask(
-                    'Building (running optimizer)')
-                with progress_tracker.subprogress(None) as sub_pt:
+                with progress_tracker.subprogress(
+                        None, 'Building (running optimizer)') as sub_pt:
                     opmerge_optimize(
                         self.model, self.dg, progress_tracker=sub_pt)
 

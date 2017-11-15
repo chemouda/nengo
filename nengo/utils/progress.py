@@ -607,6 +607,8 @@ class ProgressTracker(object):
         Maximum number of steps of the process (if known).
     progress_bar : :class:`ProgressBar` or :class:`ProgressUpdater`
         The progress bar to display the progress.
+    task : str
+        Task name to display.
     close : bool
         Whether to close the progress bar after leaving the context of the
         progress tracker.
@@ -640,7 +642,7 @@ class ProgressTracker(object):
         self.progress_bar.update(self.progress)
 
 
-class MultiProgressTracker(object):
+class MultiProgressTracker(ProgressTracker):
     """Tracks the progress of some process with a progress bar.
 
     Parameters
@@ -649,35 +651,32 @@ class MultiProgressTracker(object):
         The progress bar to display the progress.
     task : str
         Task name to display.
-    tasks : sequence of str
-        Subtask names to display.
     """
     def __init__(self, progress_bar, task):
-        self.progress_bar = wrap_with_progressupdater(
-            progress_bar=progress_bar)
-        self.task = task
-        self.total_progress = Progress(1, task=self.task)
-        self.subtask = None
-        self.subtask_progress = {}
+        super(MultiProgressTracker, self).__init__(1, progress_bar, task)
 
-    def activate_subtask(self, subtask):
-        self.subtask = subtask
-
-    def subprogress(self, max_steps):
+    def subprogress(self, max_steps, subtask):
         pt = ProgressTracker(
-            max_steps, self.progress_bar, self.subtask, close=False)
-        self.subtask_progress[self.subtask] = pt.progress
+            max_steps, self.progress_bar, subtask, close=False)
+
         return pt
 
+
+class NoopProgressTracker(ProgressTracker):
+    def __init__(self, *_):
+        pass
+
     def __enter__(self):
-        self.total_progress.__enter__()
-        self.progress_bar.update(self.total_progress)
-        return self
+        pass
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.total_progress.__exit__(exc_type, exc_value, traceback)
-        self.progress_bar.update(self.total_progress)
-        self.progress_bar.close()
+        pass
+
+    def step(self):
+        pass
+
+    def subprogress(self, *_):
+        return NoopProgressTracker()
 
 
 def get_default_progressbar():
