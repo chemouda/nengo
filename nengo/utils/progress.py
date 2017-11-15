@@ -651,6 +651,14 @@ class ProgressTracker(object):
         if self.close:
             self.progress_bar.close(self.progress)
 
+    def start(self):
+        self.__enter__()
+
+    def stop(self, past_task=None):
+        if past_task is not None:
+            self.progress.task = past_task
+        self.__exit__(None, None, None)
+
     def step(self, n=1):
         """Advance the progress and update the progress bar.
 
