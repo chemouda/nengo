@@ -321,7 +321,7 @@ def test_simulator_progress_bars(RefSimulator):
             assert self.max_steps is None or self.n_steps <= progress.n_steps
             self.n_steps = progress.n_steps
 
-        def close(self, progress):
+        def close(self):
             self.closed = True
 
     with nengo.Network() as model:
