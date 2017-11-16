@@ -652,11 +652,13 @@ class ProgressTracker(object):
         self.total_progress.__exit__(exc_type, exc_value, traceback)
         if not isinstance(self.progress_bar, NoProgressBar):
             self.update_thread.join()
-            self.progress_bar.close()
+        self.progress_bar.update(self.total_progress)
+        self.progress_bar.close()
 
     def update_loop(self):
         while not self._closing:
-            if self.sub_progress is not None:
+            if (self.sub_progress is not None and
+                    not self.sub_progress.finished):
                 self.progress_bar.update(self.sub_progress)
             else:
                 self.progress_bar.update(self.total_progress)
