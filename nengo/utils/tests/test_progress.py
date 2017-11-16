@@ -5,7 +5,7 @@ import pytest
 from nengo.exceptions import ValidationError
 from nengo.utils.progress import (
     AutoProgressBar, UpdateEveryN, UpdateEveryT, UpdateN, Progress,
-    ProgressBar, ProgressTracker)
+    ProgressBar)
 
 
 class ProgressBarMock(ProgressBar):
@@ -128,10 +128,11 @@ class TestUpdateN(object):
     def test_at_most_n_updates_are_performed(self):
         progress_bar = ProgressBarMock()
         updater = UpdateN(progress_bar, max_updates=3)
+        p = Progress(100)
 
-        with ProgressTracker(100, updater, "Testing") as p:
-            for _ in range(100):
-                p.step()
+        for _ in range(100):
+            p.step()
+            updater.update(p)
 
         assert progress_bar.n_update_calls > 0
         assert progress_bar.n_update_calls <= 3
@@ -141,37 +142,40 @@ class TestUpdateEveryN(object):
     def test_updates_every_n_steps(self):
         progress_bar = ProgressBarMock()
         updater = UpdateEveryN(progress_bar, every_n=5)
+        p = Progress()
 
-        with ProgressTracker(100, updater, "Testing") as p:
-            progress_bar.n_update_calls = 0
-            for _ in range(5):
-                p.step()
-            assert progress_bar.n_update_calls == 1
-
-            p.step(2)
-            assert progress_bar.n_update_calls == 1
-            p.step(3)
-            assert progress_bar.n_update_calls == 2
+        progress_bar.n_update_calls = 0
+        for _ in range(5):
+            p.step()
+            updater.update(p)
+        assert progress_bar.n_update_calls == 1
+        for _ in range(2):
+            p.step()
+            updater.update(p)
+        assert progress_bar.n_update_calls == 1
+        for _ in range(3):
+            p.step()
+            updater.update(p)
+        assert progress_bar.n_update_calls == 2
 
 
 class TestUpdateEveryT(object):
     def test_updates_after_interval_has_passed(self, monkeypatch):
         progress_bar = ProgressBarMock()
         updater = UpdateEveryT(progress_bar, every_t=2.)
+        p = Progress()
         t = 1.
         monkeypatch.setattr(time, 'time', lambda: t)
 
-        with ProgressTracker(100, updater, "Testing") as p:
-            p.step()  # Update is allowed to happen on first step.
+        updater.update(p)
+        progress_bar.n_update_calls = 0
+        updater.update(p)
+        assert progress_bar.n_update_calls == 0
 
-            progress_bar.n_update_calls = 0
-            p.step()
-            assert progress_bar.n_update_calls == 0
+        t = 2.
+        updater.update(p)
+        assert progress_bar.n_update_calls == 0
 
-            t = 2.
-            p.step()
-            assert progress_bar.n_update_calls == 0
-
-            t = 4.
-            p.step()
-            assert progress_bar.n_update_calls == 1
+        t = 4.
+        updater.update(p)
+        assert progress_bar.n_update_calls == 1

@@ -10,14 +10,14 @@ from nengo.ensemble import Ensemble
 from nengo.network import Network
 from nengo.node import Node
 from nengo.probe import Probe
-from nengo.utils.progress import NoopProgressTracker
+from nengo.utils.progress import Progress
 
 logger = logging.getLogger(__name__)
 nullcontext = contextlib.contextmanager(lambda: (yield))
 
 
 @Builder.register(Network)  # noqa: C901
-def build_network(model, network, progress_tracker=None):
+def build_network(model, network, progress=None):
     """Builds a `.Network` object into a model.
 
     The network builder does this by mapping each high-level object to its
@@ -40,11 +40,10 @@ def build_network(model, network, progress_tracker=None):
         The model to build into.
     network : Network
         The network to build.
-    progress_tracker : `nengo.utils.progress.MultiProgressTracker`, optional
-        Progress tracker for displaying build progress.
+    progress : `nengo.utils.progress.Progress`, optional
+        Object to track the build progress with.
 
-        Note that this will only affect top-level networks. Subnetworks
-        cannot have progress bars displayed.
+        Note that this will only affect top-level networks.
 
     Notes
     -----
@@ -57,21 +56,22 @@ def build_network(model, network, progress_tracker=None):
         return (seed if not hasattr(obj, 'seed') or obj.seed is None
                 else obj.seed)
 
-    progress = NoopProgressTracker()
-
     if model.toplevel is None:
         model.toplevel = network
         model.seeds[network] = get_seed(network, np.random)
         model.seeded[network] = getattr(network, 'seed', None) is not None
         max_steps = len(network.all_objects) + 1  # +1 for top level network
 
-        if progress_tracker is not None:
-            progress = progress_tracker.subprogress(max_steps, "Building")
+        if progress is not None:
+            progress.max_steps = max_steps
 
             def build_callback(obj):
                 if isinstance(obj, tuple(network.objects)):
                     progress.step()
             model.build_callback = build_callback
+
+    if progress is None:
+        progress = Progress()  # dummy progress
 
     # Set config
     old_config = model.config

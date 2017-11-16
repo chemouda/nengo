@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 __all__ = ["optimize"]
 
 
-def optimize(model, dg, max_passes=None, progress_tracker=None):
+def optimize(model, dg, max_passes=None):
     """Optimizes the operator graph by merging operators.
 
     This reduces the number of iterators to iterate over in slow Python code
@@ -48,8 +48,6 @@ def optimize(model, dg, max_passes=None, progress_tracker=None):
     dg : dict
         Dict of the form ``{a: {b, c}}`` where ``b`` and ``c`` depend on ``a``,
         specifying the operator dependency graph of the model.
-    progress_tracker : `nengo.utils.progress.ProgressTracker`
-        Used to report back the optimization progress.
     """
 
     logger.info("Optimizing model...")
@@ -64,7 +62,7 @@ def optimize(model, dg, max_passes=None, progress_tracker=None):
     # operators without views and then try again merging views (because
     # each operator merge might generate new views).
 
-    single_pass = OpMergePass(dg, progress_tracker)
+    single_pass = OpMergePass(dg)
 
     n_initial_ops = len(dg)
     cum_duration = 0.
@@ -121,9 +119,7 @@ def optimize(model, dg, max_passes=None, progress_tracker=None):
 
 
 class OpMergePass(object):
-    def __init__(self, dg, progress_tracker):
-        self.progress_tracker = progress_tracker
-
+    def __init__(self, dg):
         self.dg = BidirectionalDAG(dg)
         self.might_merge = set(dg)
         self.sig_replacements = {}
@@ -243,8 +239,6 @@ class OpMergePass(object):
             if op1 in self.merged_dependents or any(
                     op in self.merged for op in self.dependents[op1]):
                 continue
-
-            self.progress_tracker.step()
 
             tomerge = OpsToMerge(op1, self.merged, self.merged_dependents,
                                  self.dependents)

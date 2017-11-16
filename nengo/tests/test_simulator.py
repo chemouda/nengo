@@ -11,7 +11,7 @@ from nengo.builder.operator import DotInc
 from nengo.builder.signal import Signal
 from nengo.exceptions import ObsoleteError, SimulatorClosed, ValidationError
 from nengo.utils.compat import range, ResourceWarning
-from nengo.utils.progress import ProgressBar, UpdateEveryN
+from nengo.utils.progress import ProgressBar
 from nengo.utils.testing import warns
 
 
@@ -313,14 +313,12 @@ def test_simulator_progress_bars(RefSimulator):
         def update(self, progress):
             assert not self.closed
             if self.progress is not progress:
-                assert self.max_steps is None or self.n_steps == self.max_steps
-                self.n_steps = 0
+                assert self.max_steps is None or self.n_steps <= self.max_steps
+                self.n_steps = progress.n_steps
                 self.max_steps = progress.max_steps
                 self.progress = progress
             assert progress.max_steps == self.max_steps
-            assert (
-                self.max_steps is None or
-                self.n_steps <= progress.n_steps <= self.n_steps + 1)
+            assert self.max_steps is None or self.n_steps <= progress.n_steps
             self.n_steps = progress.n_steps
 
         def close(self, progress):
@@ -333,8 +331,7 @@ def test_simulator_progress_bars(RefSimulator):
                 [nengo.Ensemble(10, 1) for i in range(3)]
 
     build_invariants = ProgressBarInvariants()
-    with RefSimulator(
-            model, progress_bar=UpdateEveryN(build_invariants, 1)) as sim:
+    with RefSimulator(model, progress_bar=build_invariants) as sim:
         run_invariants = ProgressBarInvariants()
-        sim.run(.01, progress_bar=UpdateEveryN(run_invariants, 1))
+        sim.run(.01, progress_bar=run_invariants)
         assert run_invariants.n_steps == run_invariants.max_steps

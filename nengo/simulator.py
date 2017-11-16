@@ -14,7 +14,7 @@ from nengo.cache import get_default_decoder_cache
 from nengo.exceptions import ReadonlyError, SimulatorClosed, ValidationError
 from nengo.utils.compat import range, ResourceWarning
 from nengo.utils.graphs import toposort
-from nengo.utils.progress import MultiProgressTracker, ProgressTracker
+from nengo.utils.progress import Progress, ProgressTracker
 from nengo.utils.simulator import operator_dependency_graph
 
 logger = logging.getLogger(__name__)
@@ -152,21 +152,20 @@ class Simulator(object):
         else:
             self.model = model
 
-        progress_tracker = MultiProgressTracker(progress_bar, 'Build')
-
-        with progress_tracker:
+        with ProgressTracker(
+                progress_bar, Progress(None, "Building", "Build")) as pt:
             if network is not None:
                 # Build the network into the model
-                self.model.build(network, progress_tracker=progress_tracker)
+                self.model.build(network, progress=pt.next_subtask(
+                    None, "Building", "Build"))
 
             # Order the steps (they are made in `Simulator.reset`)
             self.dg = operator_dependency_graph(self.model.operators)
 
             if optimize:
-                with progress_tracker.subprogress(
-                        None, 'Building (running optimizer)') as sub_pt:
-                    opmerge_optimize(
-                        self.model, self.dg, progress_tracker=sub_pt)
+                with pt.next_subtask(
+                        None, 'Building (running optimizer)', 'Optimization'):
+                    opmerge_optimize(self.model, self.dg)
 
         self._step_order = [op for op in toposort(self.dg)
                             if hasattr(op, 'make_step')]
@@ -339,10 +338,12 @@ class Simulator(object):
         """
         if progress_bar is None:
             progress_bar = self.progress_bar
-        with ProgressTracker(steps, progress_bar, "Simulating") as progress:
+
+        with ProgressTracker(progress_bar, Progress(
+                steps, "Simulating", "Simulation")) as pt:
             for i in range(steps):
                 self.step()
-                progress.step()
+                pt.total_progress.step()
 
     def step(self):
         """Advance the simulator by 1 step (``dt`` seconds)."""
