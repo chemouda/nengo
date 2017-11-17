@@ -67,6 +67,8 @@ class Progress(object):
         Name of the task to be used after it has finished.
     name_during : str
         Name of the task to be used while it is running.
+    max_steps : int, optional
+        The total number of calculation steps of the process (if known).
     steps : int
         Number of completed steps.
     success : bool or None
@@ -514,7 +516,7 @@ class ProgressUpdater(object):
 
     def __init__(self, progress_bar):
         warnings.warn(DeprecationWarning(
-            "PorgressUpdater have been deprecated because progress bars "
+            "ProgressUpdater has been deprecated because progress bars "
             "have been switched to asynchronous updating."))
         self.progress_bar = progress_bar
 
@@ -618,7 +620,7 @@ class ProgressTracker(object):
         self.total_progress = total_progress
         self.update_interval = update_interval
         self.update_thread = threading.Thread(target=self.update_loop)
-        self.update_thread.deamon = True
+        self.update_thread.daemon = True
         self._closing = False
         self.sub_progress = None
 

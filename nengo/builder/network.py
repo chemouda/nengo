@@ -41,7 +41,7 @@ def build_network(model, network, progress=None):
     network : Network
         The network to build.
     progress : `nengo.utils.progress.Progress`, optional
-        Object to track the build progress with.
+        Object used to track the build progress.
 
         Note that this will only affect top-level networks.
 
