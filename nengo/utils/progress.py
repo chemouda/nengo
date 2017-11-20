@@ -207,7 +207,7 @@ class NoProgressBar(ProgressBar):
 
 
 class TerminalProgressBar(ProgressBar):
-    """A progress bar that is displayed as ASCII output on `stdout`."""
+    """A progress bar that is displayed as ASCII output on ``stdout``."""
 
     def update(self, progress):
         if progress.finished:
@@ -615,6 +615,18 @@ class UpdateEveryT(ProgressUpdater):
 
 
 class ProgressTracker(object):
+    """Tracks the progress of some process with a progress bar.
+
+    Parameters
+    ----------
+    progress_bar : :class:`ProgressBar` or bool or None
+        The progress bar to display the progress (or True to use the default
+        progress bar, False/None to disable progress bar).
+    total_progress : int
+        Maximum number of steps of the process.
+    update_interval : float, optional
+        Time to wait (in seconds) between updates to progress bar display.
+    """
     def __init__(self, progress_bar, total_progress, update_interval=0.1):
         self.progress_bar = to_progressbar(progress_bar)
         self.total_progress = total_progress
@@ -658,6 +670,8 @@ class ProgressTracker(object):
         self.progress_bar.close()
 
     def update_loop(self):
+        """Update the progress bar display (will run in a separate thread)."""
+
         while not self._closing:
             if (self.sub_progress is not None and
                     not self.sub_progress.finished):
